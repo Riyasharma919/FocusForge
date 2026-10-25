@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FocusForge - Student Dashboard</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #101827;
+  color: #f8fafc;
+  padding: 25px;
+}
+.container { max-width: 900px; margin: auto; }
+h1 { color: #67e8f9; }
+.subtitle { color: #aab8cc; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+  margin-top: 25px;
+}
+.card {
+  background: #1e293b;
+  padding: 22px;
+  border-radius: 16px;
+  border: 1px solid #334155;
+}
+.timer {
+  font-size: 45px;
+  text-align: center;
+  margin: 22px 0;
+  font-weight: bold;
+}
+button, input, select {
+  padding: 11px;
+  border-radius: 8px;
+  border: none;
+  margin: 4px 0;
+}
+button {
+  cursor: pointer;
+  background: #67e8f9;
+  color: #102030;
+  font-weight: bold;
+}
+input, select { max-width: 100%; }
+.full { width: 100%; }
+#tasks { padding-left: 20px; }
+#tasks li { margin: 12px 0; overflow-wrap: anywhere; }
+.done { text-decoration: line-through; color: #86efac; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>⚡ FocusForge</h1>
+  <p class="subtitle">Your personal study and productivity dashboard</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>⏱ Focus Timer</h2>
+      <p>Focus for 25 minutes at a time.</p>
+      <div class="timer" id="timer">25:00</div>
+      <button onclick="startTimer()">Start</button>
+      <button onclick="pauseTimer()">Pause</button>
+      <button onclick="resetTimer()">Reset</button>
+      <p id="timerStatus">Ready for your next session!</p>
+    </section>
+
+    <section class="card">
+      <h2>🎯 Daily Goal</h2>
+      <p>Completed focus sessions today:</p>
+      <h1 id="count">0</h1>
+      <label for="goal">Set your goal:</label><br>
+      <input id="goal" type="number" min="1" max="20" value="4">
+      <button onclick="saveGoal()">Save Goal</button>
+      <p id="goalStatus">Your daily target is 4 sessions.</p>
+    </section>
+
+    <section class="card">
+      <h2>📚 Study Tasks</h2>
+      <input id="taskInput" class="full" placeholder="Enter a study task">
+      <button class="full" onclick="addTask()">+ Add Task</button>
+      <ul id="tasks"></ul>
+    </section>
+
+    <section class="card">
+      <h2>📊 Your Progress</h2>
+      <p>Goal completion</p>
+      <progress id="progress" value="0" max="4" class="full"></progress>
+      <p id="progressText">0% completed</p>
+      <button onclick="clearTasks()">Clear Tasks</button>
+    </section>
+  </div>
+</div>
+
+<script>
+let seconds = 25 * 60;
+let interval = null;
+let sessions = Number(localStorage.getItem("ffSessions") || 0);
+let goal = Number(localStorage.getItem("ffGoal") || 4);
+let tasks = JSON.parse(localStorage.getItem("ffTasks") || "[]");
+
+const timer = document.getElementById("timer");
+
+function showTimer() {
+  timer.textContent =
+    String(Math.floor(seconds / 60)).padStart(2, "0") + ":" +
+    String(seconds % 60).padStart(2, "0");
+}
+
+function startTimer() {
+  if (interval !== null) return;
+  document.getElementById("timerStatus").textContent = "Focus time! Keep going.";
+  interval = setInterval(() => {
+    if (seconds > 0) {
+      seconds--;
+      showTimer();
+    } else {
+      clearInterval(interval);
+      interval = null;
+      sessions++;
+      localStorage.setItem("ffSessions", sessions);
+      updateProgress();
+      document.getElementById("timerStatus").textContent =
+        "Session complete! Great work.";
+      alert("Focus session complete! Take a short break.");
+    }
+  }, 1000);
+}
+
+function pauseTimer() {
+  clearInterval(interval);
+  interval = null;
+  document.getElementById("timerStatus").textContent = "Timer paused.";
+}
+
+function resetTimer() {
+  pauseTimer();
+  seconds = 25 * 60;
+  showTimer();
+  document.getElementById("timerStatus").textContent = "Timer reset.";
+}
+
+function saveGoal() {
+  const value = Number(document.getElementById("goal").value);
+  if (!Number.isInteger(value) || value < 1 || value > 20) {
+    alert("Please choose a goal between 1 and 20.");
+    return;
+  }
+  goal = value;
+  localStorage.setItem("ffGoal", goal);
+  updateProgress();
+}
+
+function updateProgress() {
+  document.getElementById("count").textContent = sessions;
+  document.getElementById("goal").value = goal;
+  document.getElementById("goalStatus").textContent =
+    sessions >= goal ? "Daily goal achieved! 🎉" :
+    "You need " + (goal - sessions) + " more session(s).";
+  document.getElementById("progress").max = goal;
+  document.getElementById("progress").value = Math.min(sessions, goal);
+  document.getElementById("progressText").textContent =
+    Math.round(Math.min(sessions / goal, 1) * 100) + "% completed";
+}
+
+function renderTasks() {
+  const list = document.getElementById("tasks");
+  list.replaceChildren();
+  tasks.forEach((task, index) => {
+    const item = document.createElement("li");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = task.done;
+    checkbox.addEventListener("change", () => {
+      tasks[index].done = checkbox.checked;
+      localStorage.setItem("ffTasks", JSON.stringify(tasks));
+      renderTasks();
+    });
+    const label = document.createElement("span");
+    label.textContent = " " + task.name;
+    if (task.done) label.className = "done";
+    item.append(checkbox, label);
+    list.appendChild(item);
+  });
+}
+
+function addTask() {
+  const input = document.getElementById("taskInput");
+  const name = input.value.trim();
+  if (!name) {
+    alert("Please enter a task first.");
+    return;
+  }
+  tasks.push({ name, done: false });
+  localStorage.setItem("ffTasks", JSON.stringify(tasks));
+  input.value = "";
+  renderTasks();
+}
+
+function clearTasks() {
+  if (!confirm("Delete all study tasks?")) return;
+  tasks = [];
+  localStorage.setItem("ffTasks", JSON.stringify(tasks));
+  renderTasks();
+}
+
+showTimer();
+updateProgress();
+renderTasks();
+</script>
+</body>
+</html>
